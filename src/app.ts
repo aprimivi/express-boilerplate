@@ -18,6 +18,7 @@ import { Request, Response, NextFunction, ErrorRequestHandler } from "express";
 import swaggerUi from 'swagger-ui-express';
 import { specs } from './docs/swagger';
 import { notFoundHandler } from './middleware/notFound';
+import { openAPIRouter } from "./docs/openAPIRouter";
 
 const app = express();
 
@@ -30,15 +31,15 @@ const setupMiddleware = (app: express.Application) => {
   app.use(requestId);
   setupSecurityHeaders(app as express.Express);
   app.use(cors({ origin: ENV.FRONTEND_URL, credentials: true }));
-  
+
   // Performance
   app.use(compressionMiddleware);
   app.use(express.json({ limit: "10kb" }));
-  
+
   // Monitoring
   app.use(loggingMiddleware);
   app.use(metricsMiddleware);
-  
+
   // Rate Limiting
   app.use("/api/auth", authLimiter);
   app.use("/api", apiLimiter);
@@ -84,8 +85,7 @@ const swaggerOptions = {
 app.use("/api/monitoring", monitoringRoutes);
 
 // Add Swagger documentation route at root level
-app.use('/api-docs', swaggerUi.serve);
-app.get('/api-docs', swaggerUi.setup(specs, swaggerOptions));
+app.use(openAPIRouter);
 
 // Error Handler should be last
 const errorMiddleware: ErrorRequestHandler = (err, req, res, next) => {

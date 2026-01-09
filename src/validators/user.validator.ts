@@ -1,4 +1,8 @@
+import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
+import { commonValidations } from "@/utils/commonValidation";
 import { z } from "zod";
+
+extendZodWithOpenApi(z);
 
 export const createUserSchema = z.object({
   body: z.object({
@@ -18,4 +22,8 @@ export const updateUserSchema = z.object({
   params: z.object({
     id: z.string().uuid(),
   }),
+});
+
+export const getUserSchema = z.object({
+  params: z.object({ id: commonValidations.id }),
 });

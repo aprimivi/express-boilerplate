@@ -1,4 +1,5 @@
 import { Response } from "express";
+import { z } from "zod";
 
 export class ApiResponse {
   static success(res: Response, data: any = null, message: string = "Success"): void {
@@ -18,3 +19,11 @@ export class ApiResponse {
     });
   }
 }
+
+export const apiResponseSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
+  z.object({
+    success: z.boolean(),
+    message: z.string(),
+    data: dataSchema.optional(),
+    statusCode: z.number(),
+  });
