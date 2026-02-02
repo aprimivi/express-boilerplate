@@ -5,7 +5,7 @@ import { MetricsService } from '@/services/metrics.service';
 import { singleton } from '@/decorators/singleton';
 
 export interface WebSocketMessage {
-  type: 'ping' | 'pong' | 'error' | 'connection';
+  type: 'ping' | 'pong' | 'error' | 'connection' | 'shutdown';
   data: unknown;
 }
 
@@ -31,10 +31,10 @@ export class WebSocketService {
 
   private initialize(server: Server): void {
     this.wss = new WebSocketServer({ server });
-    
+
     this.wss.on('connection', (ws: WebSocket) => {
       this.metricsService.recordWebsocketConnection(true);
-      
+
       ws.on('close', () => {
         this.metricsService.recordWebsocketConnection(false);
       });
@@ -42,6 +42,16 @@ export class WebSocketService {
       ws.on('message', (message: string) => {
         this.metricsService.recordWebsocketMessage('message', 'in');
       });
+    });
+  }
+
+  public broadcast(message: WebSocketMessage): void {
+    if (!this.wss) return;
+
+    this.wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify(message));
+      }
     });
   }
 

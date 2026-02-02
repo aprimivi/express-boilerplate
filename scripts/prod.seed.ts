@@ -1,25 +1,25 @@
 import * as dotenv from "dotenv";
 dotenv.config({ path: ".env" });
 
-import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcrypt";
-const prisma = new PrismaClient();
+import { connectDatabase, sequelize } from "../src/config/database";
+import { User, UserRole } from "../src/models/user.model";
 
 async function main() {
+  await connectDatabase();
+
   // In production, we might want to be more careful about seeding
   // Only seed if the table is empty
-  const userCount = await prisma.user.count();
+  const userCount = await User.count();
 
   if (userCount === 0) {
     // Create initial admin user
     const hashedPassword = await bcrypt.hash("Password123!", 10);
-    const adminUser = await prisma.user.create({
-      data: {
-        name: "Admin User",
-        email: "admin@express-boilerplate.com",
-        password: hashedPassword,
-        role: "ADMIN",
-      },
+    const adminUser = await User.create({
+      name: "Admin User",
+      email: "admin@express-boilerplate.com",
+      password: hashedPassword,
+      role: UserRole.ADMIN,
     });
 
     console.log("Production seed completed:", adminUser);
@@ -34,5 +34,5 @@ main()
     process.exit(1);
   })
   .finally(async () => {
-    await prisma.$disconnect();
+    await sequelize.close();
   });

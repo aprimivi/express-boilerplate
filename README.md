@@ -12,7 +12,7 @@
 
 - **TypeScript** - Strongly typed language for better developer experience
 - **Authentication & Authorization** - JWT-based auth with refresh tokens
-- **Database Integration** - Prisma ORM with MySQL
+- **Database Integration** - Sequelize ORM with MySQL
 - **API Documentation** - REST client files for API testing
 - **Security**
   - Helmet for security headers
@@ -69,7 +69,7 @@ cp .env.example .env
 
 4. Set up the database:
 ```bash
-npm run migrate:dev
+npm run db:sync
 npm run seed:dev
 ```
 
@@ -110,7 +110,6 @@ services:
   api:
     volumes:
       - ./src:/app/src:delegated        # Source code
-      - ./prisma:/app/prisma:delegated  # Prisma schema
       - api_node_modules:/app/node_modules
     environment:
       - NODE_ENV=development
@@ -164,9 +163,8 @@ This will start:
 - `npm test` - Run tests
 - `npm run test:e2e` - Run E2E tests
 - `npm run test:coverage` - Generate test coverage
-- `npm run migrate:dev` - Run database migrations
+- `npm run db:sync` - Sync Sequelize models to the database
 - `npm run seed:dev` - Seed database with test data
-- `npm run studio` - Open Prisma Studio
 
 ### Docker Commands
 
@@ -195,6 +193,7 @@ docker-compose down -v
 │   ├── @types/          # TypeScript type definitions
 │   ├── config/          # Configuration files
 │   ├── controllers/     # Route controllers
+│   ├── models/          # Sequelize models
 │   ├── middleware/      # Express middleware
 │   ├── routes/          # API routes
 │   ├── services/        # Business logic
@@ -202,7 +201,6 @@ docker-compose down -v
 │   ├── validators/      # Request validation schemas
 │   ├── app.ts          # Express app setup
 │   └── index.ts        # Application entry point
-├── prisma/             # Prisma schema and migrations
 ├── requests/           # REST client files
 └── docker/            # Docker configuration files
 ```

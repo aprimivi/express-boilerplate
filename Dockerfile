@@ -8,7 +8,6 @@ WORKDIR /app
 
 # Copy only necessary files first
 COPY package*.json ./
-COPY prisma ./prisma/
 COPY tsconfig*.json ./
 COPY .env.example ./.env
 
@@ -30,7 +29,6 @@ WORKDIR /app
 COPY --from=builder --chown=appuser:appgroup /app/dist ./dist
 COPY --from=builder --chown=appuser:appgroup /app/node_modules ./node_modules
 COPY --from=builder --chown=appuser:appgroup /app/package*.json ./
-COPY --from=builder --chown=appuser:appgroup /app/prisma ./prisma
 COPY --from=builder --chown=appuser:appgroup /app/.env ./
 
 # Switch to non-root user

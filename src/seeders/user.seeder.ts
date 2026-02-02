@@ -1,11 +1,9 @@
-import { PrismaClient, user_role } from "@prisma/client";
 import bcrypt from "bcrypt";
+import { User, UserRole } from "@/models/user.model";
 
-export async function seedUsers(prisma: PrismaClient) {
-    // Clear existing data
-    await prisma.user.deleteMany({});
+export async function seedUsers() {
+    await User.destroy({ where: {}, truncate: true, cascade: true });
 
-    // Create development test users
     const hashedPassword = await bcrypt.hash("Password123!", 10);
 
     const users = [
@@ -13,7 +11,7 @@ export async function seedUsers(prisma: PrismaClient) {
             name: "John Doe",
             email: "john@example.com",
             password: hashedPassword,
-            role: user_role.ADMIN,
+            role: UserRole.ADMIN,
         },
         {
             name: "Jane Smith",
@@ -28,6 +26,6 @@ export async function seedUsers(prisma: PrismaClient) {
     ];
 
     for (const user of users) {
-        await prisma.user.create({ data: user });
+        await User.create(user);
     }
 }

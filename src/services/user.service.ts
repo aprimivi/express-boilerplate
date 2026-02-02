@@ -1,43 +1,29 @@
-import { PrismaClient } from "@prisma/client";
 import { AppError } from "@/utils/appError";
-
-const prisma = new PrismaClient();
+import { User, UserRole } from "@/models/user.model";
 
 export class UserService {
   async getAllUsers(page = 1, limit = 10) {
     const skip = (page - 1) * limit;
-    return await prisma.user.findMany({
-      take: limit,
-      skip,
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+    const users = await User.findAll({
+      limit,
+      offset: skip,
+      attributes: ["id", "name", "email", "role", "createdAt", "updatedAt"],
+      order: [["createdAt", "DESC"]],
     });
+
+    return users.map((user) => user.toJSON());
   }
 
   async getUserById(id: string) {
-    const user = await prisma.user.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+    const user = await User.findByPk(id, {
+      attributes: ["id", "name", "email", "role", "createdAt", "updatedAt"],
     });
 
     if (!user) {
       throw new AppError("User not found", 404);
     }
 
-    return user;
+    return user.toJSON();
   }
 
   async updateUser(
@@ -48,24 +34,27 @@ export class UserService {
       role: "ADMIN" | "USER";
     }>
   ) {
-    return prisma.user.update({
-      where: { id },
-      data,
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+    const user = await User.findByPk(id);
+
+    if (!user) {
+      throw new AppError("User not found", 404);
+    }
+
+    await user.update({
+      name: data.name ?? user.name,
+      email: data.email ?? user.email,
+      role: (data.role as UserRole | undefined) ?? user.role,
     });
+
+    return user.toJSON();
   }
 
   async deleteUser(id: string) {
-    await prisma.user.delete({
-      where: { id },
-    });
+    const deleted = await User.destroy({ where: { id } });
+
+    if (!deleted) {
+      throw new AppError("User not found", 404);
+    }
   }
 
   async createUser(data: {
@@ -74,16 +63,13 @@ export class UserService {
     password: string;
     role?: "ADMIN" | "USER";
   }) {
-    return prisma.user.create({
-      data,
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+    const user = await User.create({
+      name: data.name,
+      email: data.email,
+      password: data.password,
+      role: (data.role as UserRole | undefined) ?? UserRole.USER,
     });
+
+    return user.toJSON();
   }
 }

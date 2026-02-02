@@ -14,7 +14,6 @@ RUN mkdir -p node_modules dist && \
 
 # Copy package files
 COPY package*.json ./
-COPY prisma ./prisma/
 COPY tsconfig*.json ./
 COPY scripts ./scripts/
 COPY nodemon.json ./

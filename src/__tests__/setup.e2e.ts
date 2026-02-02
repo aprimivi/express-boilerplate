@@ -1,24 +1,21 @@
-import { PrismaClient } from "@prisma/client";
 import request from "supertest";
 import app from "@/app";
-
-const prisma = new PrismaClient();
+import { connectDatabase, sequelize } from "@/config/database";
+import { User } from "@/models/user.model";
 
 beforeAll(async () => {
-  await prisma.$connect();
-  // Clean database at start
-  await prisma.$transaction([prisma.user.deleteMany()]);
+  await connectDatabase();
+  await User.destroy({ where: {}, truncate: true, cascade: true });
 });
 
 beforeEach(async () => {
-  // Clean database before each test
-  await prisma.$transaction([prisma.user.deleteMany()]);
+  await User.destroy({ where: {}, truncate: true, cascade: true });
 });
 
 afterAll(async () => {
-  await prisma.$transaction([prisma.user.deleteMany()]);
-  await prisma.$disconnect();
+  await User.destroy({ where: {}, truncate: true, cascade: true });
+  await sequelize.close();
 });
 
 export const testApp = request(app);
-export { prisma };
+export { sequelize as database };

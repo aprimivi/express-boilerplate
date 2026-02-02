@@ -1,11 +1,10 @@
 import { testApp } from "../setup.e2e";
-import prisma from "@/config/database";
 import bcrypt from "bcrypt";
+import { User, UserRole } from "@/models/user.model";
 
 describe("Auth endpoints", () => {
   beforeEach(async () => {
-    // Clean database before each test
-    await prisma.$transaction([prisma.user.deleteMany()]);
+    await User.destroy({ where: {}, truncate: true, cascade: true });
   });
 
   describe("POST /api/auth/signup", () => {
@@ -25,21 +24,15 @@ describe("Auth endpoints", () => {
     beforeEach(async () => {
       const hashedPassword = await bcrypt.hash("Password123!", 10);
 
-      // Create test user with all required fields
-      await prisma.user.create({
-        data: {
-          email: "test@example.com",
-          name: "Test User",
-          password: hashedPassword,
-          role: "USER",
-          emailVerified: null,
-          image: null,
-          refreshToken: null,
-        },
+      await User.create({
+        email: "test@example.com",
+        name: "Test User",
+        password: hashedPassword,
+        role: UserRole.USER,
+        emailVerified: new Date(),
+        image: null,
+        refreshToken: null,
       });
-
-      // Wait a bit to ensure user is created
-      await new Promise((resolve) => setTimeout(resolve, 100));
     });
 
     it("should login successfully", async () => {
@@ -55,15 +48,12 @@ describe("Auth endpoints", () => {
 
   describe("Email verification", () => {
     it("should verify email with valid token", async () => {
-      // Create user with verification token
-      const user = await prisma.user.create({
-        data: {
-          email: "test@example.com",
-          name: "Test User",
-          password: await bcrypt.hash("Password123!", 10),
-          emailVerificationToken: "test-token",
-          emailVerificationExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        },
+      const user = await User.create({
+        email: "test@example.com",
+        name: "Test User",
+        password: await bcrypt.hash("Password123!", 10),
+        emailVerificationToken: "test-token",
+        emailVerificationExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
       });
 
       const response = await testApp
@@ -71,29 +61,19 @@ describe("Auth endpoints", () => {
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      
-      // Check user is verified
-      const verifiedUser = await prisma.user.findUnique({
-        where: { id: user.id }
-      });
+
+      const verifiedUser = await User.findByPk(user.id);
       expect(verifiedUser?.emailVerified).toBeTruthy();
     });
   });
 
   describe("Password Reset", () => {
-    beforeEach(async () => {
-      await prisma.user.deleteMany();
-    });
-
     it("should send password reset email", async () => {
-      // Create a user first
-      const user = await prisma.user.create({
-        data: {
-          email: "test@example.com",
-          name: "Test User",
-          password: await bcrypt.hash("Password123!", 10),
-          emailVerified: new Date(),
-        },
+      const user = await User.create({
+        email: "test@example.com",
+        name: "Test User",
+        password: await bcrypt.hash("Password123!", 10),
+        emailVerified: new Date(),
       });
 
       const response = await testApp
@@ -103,26 +83,20 @@ describe("Auth endpoints", () => {
 
       expect(response.body.success).toBe(true);
 
-      // Verify token was created
-      const updatedUser = await prisma.user.findUnique({
-        where: { id: user.id },
-      });
+      const updatedUser = await User.findByPk(user.id);
       expect(updatedUser?.passwordResetToken).toBeTruthy();
       expect(updatedUser?.passwordResetExpires).toBeTruthy();
     });
 
     it("should reset password with valid token", async () => {
-      // Create user with reset token
       const resetToken = "test-reset-token";
-      const user = await prisma.user.create({
-        data: {
-          email: "test@example.com",
-          name: "Test User",
-          password: await bcrypt.hash("OldPassword123!", 10),
-          passwordResetToken: resetToken,
-          passwordResetExpires: new Date(Date.now() + 3600000), // 1 hour
-          emailVerified: new Date(),
-        },
+      const user = await User.create({
+        email: "test@example.com",
+        name: "Test User",
+        password: await bcrypt.hash("OldPassword123!", 10),
+        passwordResetToken: resetToken,
+        passwordResetExpires: new Date(Date.now() + 3600000),
+        emailVerified: new Date(),
       });
 
       const response = await testApp
@@ -132,14 +106,10 @@ describe("Auth endpoints", () => {
 
       expect(response.body.success).toBe(true);
 
-      // Verify password was changed
-      const updatedUser = await prisma.user.findUnique({
-        where: { id: user.id },
-      });
+      const updatedUser = await User.findByPk(user.id);
       expect(updatedUser?.passwordResetToken).toBeNull();
       expect(updatedUser?.passwordResetExpires).toBeNull();
 
-      // Verify can login with new password
       const loginResponse = await testApp
         .post("/api/auth/login")
         .send({
@@ -152,16 +122,13 @@ describe("Auth endpoints", () => {
     });
 
     it("should not reset password with expired token", async () => {
-      // Create user with expired reset token
-      await prisma.user.create({
-        data: {
-          email: "test@example.com",
-          name: "Test User",
-          password: await bcrypt.hash("Password123!", 10),
-          passwordResetToken: "expired-token",
-          passwordResetExpires: new Date(Date.now() - 3600000), // 1 hour ago
-          emailVerified: new Date(),
-        },
+      await User.create({
+        email: "test@example.com",
+        name: "Test User",
+        password: await bcrypt.hash("Password123!", 10),
+        passwordResetToken: "expired-token",
+        passwordResetExpires: new Date(Date.now() - 3600000),
+        emailVerified: new Date(),
       });
 
       const response = await testApp
@@ -170,7 +137,7 @@ describe("Auth endpoints", () => {
         .expect(400);
 
       expect(response.body.success).toBe(false);
-      expect(response.body.error.code).toBe("ERR_1004"); // INVALID_TOKEN
+      expect(response.body.error.code).toBe("ERR_1004");
     });
   });
 });

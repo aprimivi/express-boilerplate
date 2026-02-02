@@ -1,22 +1,56 @@
 import { AppError } from "./appError";
 import { logger } from "@/config/logger";
 import { ErrorCode } from "./errorCodes";
-import { Prisma } from "@prisma/client";
+import {
+  ValidationError as SequelizeValidationError,
+  UniqueConstraintError,
+  ForeignKeyConstraintError,
+} from "sequelize";
 
 export class ErrorHandler {
   static handle(error: unknown, context: string) {
-    // Handle Prisma errors
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      const prismaError = this.handlePrismaError(error);
-      logger.warn("Prisma error occurred", {
-        message: prismaError.message,
+    // Handle Sequelize errors
+    if (error instanceof UniqueConstraintError) {
+      const dbError = error as UniqueConstraintError;
+      const appError = new AppError(
+        "Resource already exists",
+        409,
+        ErrorCode.ALREADY_EXISTS
+      );
+      logger.warn("Unique constraint violation", {
+        message: appError.message,
         context,
-        code: prismaError.code,
-        statusCode: prismaError.statusCode,
-        prismaCode: error.code,
-        meta: error.meta, // Include Prisma metadata
+        code: appError.code,
+        statusCode: appError.statusCode,
+        details: dbError.errors,
       });
-      return prismaError;
+      return appError;
+    }
+
+    if (error instanceof ForeignKeyConstraintError) {
+      const dbError = error as ForeignKeyConstraintError;
+      const appError = new AppError("Invalid reference", 400, ErrorCode.DB_ERROR);
+      logger.warn("Foreign key constraint violation", {
+        message: appError.message,
+        context,
+        code: appError.code,
+        statusCode: appError.statusCode,
+        details: dbError.fields,
+      });
+      return appError;
+    }
+
+    if (error instanceof SequelizeValidationError) {
+      const dbError = error as SequelizeValidationError;
+      const appError = new AppError("Validation failed", 400, ErrorCode.VALIDATION_ERROR);
+      logger.warn("Sequelize validation error", {
+        message: appError.message,
+        context,
+        code: appError.code,
+        statusCode: appError.statusCode,
+        details: dbError.errors,
+      });
+      return appError;
     }
 
     if (error instanceof AppError) {
@@ -49,22 +83,6 @@ export class ErrorHandler {
     return unknownError;
   }
 
-  private static handlePrismaError(
-    error: Prisma.PrismaClientKnownRequestError
-  ): AppError {
-    switch (error.code) {
-      case "P2002":
-        return new AppError(
-          "Resource already exists",
-          409,
-          ErrorCode.ALREADY_EXISTS
-        );
-      case "P2025":
-        return new AppError("Resource not found", 404, ErrorCode.NOT_FOUND);
-      default:
-        return new AppError("Database error", 500, ErrorCode.DB_ERROR, false);
-    }
-  }
 }
 
 // Add more specific error types

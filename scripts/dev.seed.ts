@@ -1,13 +1,12 @@
 import * as dotenv from "dotenv";
 dotenv.config({ path: ".env" });
 
-import { PrismaClient } from "@prisma/client";
-const prisma = new PrismaClient();
-
 import { seedUsers } from "../src/seeders/user.seeder";
+import { connectDatabase, sequelize } from "../src/config/database";
 
 async function main() {
-  await seedUsers(prisma);
+  await connectDatabase();
+  await seedUsers();
 
   console.log("Development seed completed");
 }
@@ -18,5 +17,5 @@ main()
     process.exit(1);
   })
   .finally(async () => {
-    await prisma.$disconnect();
+    await sequelize.close();
   });
