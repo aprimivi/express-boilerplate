@@ -2,181 +2,103 @@ import { Router } from "express";
 import { AuthController } from "@/controllers/auth.controller";
 import { AuthService } from "@/services/auth.service";
 import { validateRequest } from "@/middleware/validateRequest";
-import { loginSchema, signupSchema, verifyEmailSchema, resendVerificationSchema, forgotPasswordSchema, resetPasswordSchema, refreshTokenSchema } from "@/validators/auth.validator";
+import {
+  loginSchema,
+  signupSchema,
+  verifyEmailSchema,
+  resendVerificationSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  refreshTokenSchema,
+} from "@/validators/auth.validator";
 import { requireAuth } from "@/middleware/authMiddleware";
 import { verificationLimiter } from "@/middleware/rateLimiter";
 import { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-import { createApiResponse } from "@/docs/openAPIResponseBuilders";
+import { registerRoute } from "@/docs/openAPIHelpers";
 import { createUserSchema } from "@/validators/user.validator";
 
+// ─── OpenAPI Registry ────────────────────────────────────────────────
 export const authRegistry = new OpenAPIRegistry();
-const router = Router();
 
-// Initialize services and controller
-const authService = new AuthService();
-const authController = new AuthController(authService);
-
-// Routes
-authRegistry.register("Auth", signupSchema);
-
-authRegistry.registerPath({
+registerRoute(authRegistry, {
   method: "post",
   path: "/auth/signup",
   tags: ["Auth"],
-  request: {
-    body: {
-      content: {
-        'application/json': {
-          schema: signupSchema.shape.body,
-        },
-      },
-    },
-  },
-  responses: createApiResponse(z.null(), "Success"),
+  summary: "Register a new user",
+  requestBody: signupSchema.shape.body,
 });
-router.post("/signup", validateRequest(signupSchema), authController.signup);
 
-authRegistry.registerPath({
+registerRoute(authRegistry, {
   method: "post",
   path: "/auth/login",
   tags: ["Auth"],
-  request: {
-    body: {
-      content: {
-        'application/json': {
-          schema: loginSchema.shape.body,
-        },
-      },
-    },
-  },
-  responses: createApiResponse(createUserSchema.shape.body, "Success"),
+  summary: "Login user",
+  requestBody: loginSchema.shape.body,
+  responseSchema: createUserSchema.shape.body,
 });
-router.post("/login", validateRequest(loginSchema), authController.login);
 
-authRegistry.registerPath({
+registerRoute(authRegistry, {
   method: "post",
   path: "/auth/refresh",
   tags: ["Auth"],
-  request: {
-    body: {
-      content: {
-        'application/json': {
-          schema: refreshTokenSchema.shape.body,
-        },
-      },
-    },
-  },
-  responses: createApiResponse(z.null({}), "Success")
+  summary: "Refresh access token",
+  requestBody: refreshTokenSchema.shape.body,
 });
-router.post("/refresh", authController.refresh);
 
-authRegistry.registerPath({
+registerRoute(authRegistry, {
   method: "post",
   path: "/auth/logout",
   tags: ["Auth"],
-  responses: createApiResponse(z.null({}), "Success"),
+  summary: "Logout user",
+  security: true,
 });
-router.post("/logout", requireAuth, authController.logout);
 
-authRegistry.registerPath({
+registerRoute(authRegistry, {
   method: "get",
-  path: "/auth/verify-email/:token",
+  path: "/auth/verify-email/{token}",
   tags: ["Auth"],
-  request: { params: verifyEmailSchema.shape.params },
-  responses: createApiResponse(z.null({}), "Success")
+  summary: "Verify email with token",
+  params: verifyEmailSchema.shape.params,
 });
+
+registerRoute(authRegistry, {
+  method: "post",
+  path: "/auth/send-email-verification",
+  tags: ["Auth"],
+  summary: "Resend verification email",
+  requestBody: resendVerificationSchema.shape.body,
+});
+
+registerRoute(authRegistry, {
+  method: "post",
+  path: "/auth/forgot-password",
+  tags: ["Auth"],
+  summary: "Request password reset",
+  requestBody: forgotPasswordSchema.shape.body,
+});
+
+registerRoute(authRegistry, {
+  method: "post",
+  path: "/auth/reset-password/{token}",
+  tags: ["Auth"],
+  summary: "Reset password with token",
+  params: resetPasswordSchema.shape.params,
+  requestBody: resetPasswordSchema.shape.body,
+});
+
+// ─── Router ──────────────────────────────────────────────────────────
+const router = Router();
+
+const authService = new AuthService();
+const authController = new AuthController(authService);
+
+router.post("/signup", validateRequest(signupSchema), authController.signup);
+router.post("/login", validateRequest(loginSchema), authController.login);
+router.post("/refresh", authController.refresh);
+router.post("/logout", requireAuth, authController.logout);
 router.get("/verify-email/:token", validateRequest(verifyEmailSchema), authController.verifyEmail);
-
-/**
- * @swagger
- * /auth/send-email-verification:
- *   post:
- *     summary: Resend verification email
- *     tags: [Auth]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - email
- *             properties:
- *               email:
- *                 type: string
- *                 format: email
- *     responses:
- *       200:
- *         description: Verification email sent
- *       429:
- *         description: Too many requests
- */
-router.post(
-  "/send-email-verification",
-  verificationLimiter,
-  validateRequest(resendVerificationSchema),
-  authController.resendVerification
-);
-
-/**
- * @swagger
- * /auth/forgot-password:
- *   post:
- *     summary: Request password reset
- *     tags: [Auth]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - email
- *             properties:
- *               email:
- *                 type: string
- *                 format: email
- *     responses:
- *       200:
- *         description: Reset email sent if email exists
- */
+router.post("/send-email-verification", verificationLimiter, validateRequest(resendVerificationSchema), authController.resendVerification);
 router.post("/forgot-password", validateRequest(forgotPasswordSchema), authController.forgotPassword);
-
-/**
- * @swagger
- * /auth/reset-password/{token}:
- *   post:
- *     summary: Reset password
- *     tags: [Auth]
- *     parameters:
- *       - in: path
- *         name: token
- *         required: true
- *         schema:
- *           type: string
- *         description: Password reset token
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - password
- *             properties:
- *               password:
- *                 type: string
- *                 format: password
- *                 minLength: 8
- *     responses:
- *       200:
- *         description: Password reset successful
- *       400:
- *         description: Invalid token or password
- *       404:
- *         description: Token not found
- */
 router.post("/reset-password/:token", validateRequest(resetPasswordSchema), authController.resetPassword);
 
 export default router;

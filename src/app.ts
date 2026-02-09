@@ -10,14 +10,11 @@ import cors from "cors";
 import { requestId } from "@/middleware/requestId";
 import { loggingMiddleware } from "@/middleware/loggingMiddleware";
 import { compressionMiddleware } from "@/middleware/performanceMiddleware";
-import { cache } from "@/middleware/cacheMiddleware";
 import { metricsMiddleware } from "@/middleware/monitoringMiddleware";
 import monitoringRoutes from "@/routes/monitoring.routes";
 import { ErrorMonitoringService } from "@/services/errorMonitoring.service";
-import { Request, Response, NextFunction, ErrorRequestHandler } from "express";
-import swaggerUi from 'swagger-ui-express';
-import { specs } from './docs/swagger';
-import { notFoundHandler } from './middleware/notFound';
+import { ErrorRequestHandler } from "express";
+import { notFoundHandler } from "./middleware/notFound";
 import { openAPIRouter } from "./docs/openAPIRouter";
 
 const app = express();
@@ -65,27 +62,14 @@ app.get("/health", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 
-// Move Swagger docs before error handler
-const swaggerOptions = {
-  explorer: true,
-  swaggerOptions: {
-    persistAuthorization: true,
-    displayRequestDuration: true,
-    docExpansion: 'none',
-    filter: true,
-    showExtensions: true,
-    showCommonExtensions: true,
-    tryItOutEnabled: true
-  },
-  customCss: '.swagger-ui .topbar { display: none }',
-  customSiteTitle: "Express TypeScript API Documentation"
-};
-
-// Move monitoring routes before error handler
+// Monitoring routes
 app.use("/api/monitoring", monitoringRoutes);
 
-// Add Swagger documentation route at root level
+// Swagger documentation
 app.use(openAPIRouter);
+
+// Not found handler (must be before error handler)
+app.use(notFoundHandler);
 
 // Error Handler should be last
 const errorMiddleware: ErrorRequestHandler = (err, req, res, next) => {
@@ -93,14 +77,5 @@ const errorMiddleware: ErrorRequestHandler = (err, req, res, next) => {
 };
 
 app.use(errorMiddleware);
-
-// Move cache middleware before error handler
-app.use("/api/users", cache({ duration: 300 }));
-
-// Monitoring routes
-app.use("/monitoring", monitoringRoutes);
-
-// Add this as the last middleware (before error handler)
-app.use(notFoundHandler);
 
 export default app;

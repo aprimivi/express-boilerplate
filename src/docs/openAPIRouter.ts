@@ -6,9 +6,24 @@ import { generateOpenAPIDocument } from "@/docs/openAPIDocumentGenerator";
 export const openAPIRouter: Router = express.Router();
 const openAPIDocument = generateOpenAPIDocument();
 
+const swaggerOptions: swaggerUi.SwaggerUiOptions = {
+	explorer: true,
+	swaggerOptions: {
+		persistAuthorization: true,
+		displayRequestDuration: true,
+		docExpansion: "none",
+		filter: true,
+		showExtensions: true,
+		showCommonExtensions: true,
+		tryItOutEnabled: true,
+	},
+	customCss: ".swagger-ui .topbar { display: none }",
+	customSiteTitle: "Express TypeScript API Documentation",
+};
+
 openAPIRouter.get("/swagger.json", (_req: Request, res: Response) => {
 	res.setHeader("Content-Type", "application/json");
 	res.send(openAPIDocument);
 });
 
-openAPIRouter.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openAPIDocument));
+openAPIRouter.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openAPIDocument, swaggerOptions));
